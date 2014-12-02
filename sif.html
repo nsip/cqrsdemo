@@ -1,0 +1,90 @@
+<HTML>
+<head>
+<script src="http://code.jquery.com/jquery-1.6.2.min.js"></script>    
+<script src="./hilitor.js"></script>    
+ <link rel="stylesheet" href="./json.human.js-master/css/json.human.css">
+</head>
+<body>
+<table border=1>
+<tr><th>SIF input</th><th>SIF output</th><th>Pretty</th></tr>
+<tr><td valign="top">
+Total Records: <span id="count"></span>
+<br/>
+<form id="form1" action="http://127.0.0.1:10000/myaction" method="post">
+<textarea rows="50" cols="50" name="siftext"></textarea>
+                <br/>Profile: <input type="radio" name="profile" value="public" checked="checked">Public</input>
+		<input type="radio" name="profile" value="Low">Low</input>
+		<input type="radio" name="profile" value="Med">Med</input>
+		<input type="radio" name="profile" value="Hi">Hi</input>
+               <br/><input type="radio" name="op" value="JSON" checked="checked">To JSON
+               <input type="radio" name="op" value="Inject CEDS">Inject CEDS
+               <input type="radio" name="op" value="Filter CEDS">Filter CEDS
+               <input type="radio" name="op" value="Filtered XML">Filtered XML
+		<br><input type="submit" />
+</form>
+</td>
+<td valign="top">
+<div id="out"/>
+</td>
+<td valign="top">
+<div id="pretty"/>
+</td>
+</table>
+
+<script type="text/javascript" charset="utf-8">
+
+function longPoll_feed () {
+	//make another request
+	$.ajax({
+			cache: false,
+			dataType: 'json',
+			type: "POST",
+			url: "http://127.0.0.1:10000/myaction",
+			error: function () {
+				//don't flood the servers on error, wait 10 seconds before retrying
+				setTimeout(longPoll_feed, 3*1000);
+			},
+			success: function (json) {
+				display_event(json);
+				
+				//if everything went well, begin another request immediately
+				//the server will take a long time to respond
+				//how long? well, it will wait until there is another message
+				//and then it will return it to us and close the connection.
+				//since the connection is closed when we get data, we longPoll again
+				longPoll_feed();
+			}
+		});
+}
+
+function display_event(body){
+	$('#out').append(body.output.replace(/\\n/g,'<br/>').replace(/\\"/g,'"'));
+	$('#pretty').append(body.pretty);
+	$('#count').append(body.count);
+	var myHilitor = new Hilitor("pretty");
+	myHilitor.remove();
+	myHilitor.apply("suppressed cedsid entitytype value CREATE DELETE UPDATE");
+	myHilitor2 = new Hilitor("out");
+	myHilitor2.apply("suppressed cedsid entitytype value CREATE DELETE UPDATE");
+
+}
+
+$(document).ready(function() {
+	//begin listening for updates right away
+	longPoll_feed();
+});
+
+/* http://stackoverflow.com/questions/12645597/ajax-call-in-expressjs */
+
+$('#form1').submit(function(evt) {
+  evt.preventDefault();
+var formData = $(this).serialize();
+$.post('/myaction', formData, display_event);
+
+});
+</script>
+
+
+
+
+</html>
